@@ -28,8 +28,6 @@ A complete R project analyzing the Titanic dataset using statistical modeling, i
 - rms – logistic regression, spline modeling, calibration  
 - pROC – ROC curve + AUC  
 - mice – missing data imputation  
-- pscl – pseudo R² metrics  
-- ModelMetrics – Brier score  
 - ggplot2 – custom visualizations  
 
 ## 📂 Dataset
@@ -64,11 +62,8 @@ Steps:
 - Sensitivity & Specificity
 - Precision / Recall / F1-score
 - AUC (ROC Curve)
-- Brier Score
 - KS Statistic
-- Pseudo R² (McFadden)
 - Calibration Curve
-- Hosmer–Lemeshow Test
 - Variable Importance
 
 ## 📉 Visualizations
@@ -81,7 +76,7 @@ Includes:
 ## 🚀 How to Run
 ```
 install.packages(c("tidyverse", "caret", "rms", "pROC",
-                   "mice", "pscl", "ModelMetrics"))
+                   "mice", "ModelMetrics"))
 ```
 Open **titanic.Rmd** in RStudio and knit.
 
