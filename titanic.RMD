@@ -1,0 +1,633 @@
+---
+title: "Titanic_Analysis"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    df_print: paged
+    number_sections: yes
+    code_folding: show
+  pdf_document:
+    toc: yes
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE,warning = FALSE)
+```
+ 
+```{r load libraries}
+library(readxl)
+library(tidyverse)
+library(ggridges)
+library(PupillometryR)
+library(Hmisc)
+library(rms)
+library(broom)
+library(car)
+```
+
+
+```{r}
+titanic3 <- read_excel("titanic3.xls")
+titanic3
+```
+
+
+
+```{r}
+titanic3$survived <-as.factor(titanic3$survived)
+titanic3$pclass <-as.factor(titanic3$pclass)
+titanic3$embarked <-as.factor(titanic3$embarked)
+
+```
+## Titanic survial rate
+```{r}
+titanic3 %>% group_by(survived) %>% summarise(count=n()) %>% mutate(percentage=count/sum(count)*100) %>% 
+  ggplot(aes(x = survived,y=count,fill=survived))+
+  geom_col(width = 0.4) + scale_fill_manual(values = c("#ff006f", "#006eff"), name = "Survived",labels = c("No", "Yes")) +scale_x_discrete(labels=c("0" = "Died ", "1" = "Survived")) + theme(legend.justification = c("right", "top"),plot.title = element_text(hjust = 0.5),panel.grid.major.y = element_blank(),panel.grid.minor.y = element_blank()) + labs(title = "Titanic Survival rate",x=NULL,y="Passenger Count")+ geom_label(aes(label = paste0(count, " (", round(percentage), "%)"),y=count),label.padding = unit(0.25, "lines"),label.size = 0.75,label.r = unit(0.005, "lines"),
+            position = position_stack(vjust = 0.75)) 
+```
+
+## Conclusions:
+* The analysis of the data from the Titanic shows that the number of deaths was greater than the number of survivors.
+
+
+
+## Titanic survival rate by gender
+```{r}
+titanic3 %>%
+  group_by(survived,sex) %>% 
+  summarise(count=n()) %>% 
+  ungroup() %>% 
+  group_by(sex) %>% 
+  mutate(total_count = sum(count)) %>% 
+  mutate(survival_rate = count / total_count * 100) %>% 
+  mutate(percentage=count/sum(count)*100) %>% 
+  ggplot(aes(x = sex,y=count,fill = survived)) +
+  geom_bar(width = 0.4,stat="identity") +
+  scale_fill_manual(values = c("#ff006f", "#006eff"),
+                    name = "Survived",
+                    labels = c("No", "Yes")) +
+  scale_x_discrete(labels=c("0" = "Died ", "1" = "Survived")) + 
+  theme(legend.justification = c("right", "top"),
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.major.y =element_blank(),
+        panel.grid.minor.y = element_blank()) + 
+  labs(title = "Titanic Survival rate",x=NULL,y="Passenger Count") +
+  geom_label(aes(label = paste0(count, " (", round(survival_rate), "%)"),y=count),
+             label.padding = unit(0.25, "lines"),
+             label.size = 0.75,
+             label.r = unit(0.005, "lines"),
+            position = position_stack(vjust = 0.5)) +
+  scale_y_continuous(breaks=c(0,100,200,300,400,500,600,700,800))
+```
+
+## **Conclusion** :
+* The data indicates that male passengers outweight female passengers on the Titanic, and the death rate for male passengers was higher than that of female passengers
+
+## Titanic survival rate by class 
+```{r}
+titanic3 %>% 
+  group_by(survived,pclass) %>% 
+  summarise(count=n()) %>% 
+  ungroup() %>%
+  group_by(pclass) %>% 
+  mutate(total_count = sum(count)) %>% 
+  mutate(survival_rate = count / total_count * 100) %>% 
+  ggplot(aes(x = pclass,y= count, fill = survived)) +
+  geom_bar(width = 0.5,stat = "identity") + 
+  scale_fill_manual(values= c("#ff006f", "#006eff"), name = "Survival Status", labels = c("Died", "Survived")) +
+  theme(legend.justification = c("right", "top"),plot.title = element_text(hjust = 0.5),panel.grid.major.y = element_blank(),
+  panel.grid.minor.y = element_blank()) +
+  labs(title = "Survival rates by class",x="Class",y="Passenger Count")+
+  geom_label(aes(label = paste0(count, " (", round(survival_rate), "%)"),y=count),
+             label.padding = unit(0.25, "lines"),
+             label.size = 0.75,
+             label.r = unit(0.005, "lines"),
+            position = position_stack(vjust = 0.5))+ 
+  scale_x_discrete(labels=c("1" = "First class ", "2" = "second class","3"="Third class"))
+```
+
+
+
+
+
+## Titanic survival rate by class and gender
+```{r}
+titanic3 %>%
+  ggplot(aes(x = pclass, fill = survived)) +
+  geom_bar(width = 0.4) + 
+  scale_fill_manual(values= c("#ff006f", "#006eff"), name = "Survival Status", labels = c("Died", "Survived")) +
+  theme(legend.justification = c("right", "top"),plot.title = element_text(hjust = 0.5),panel.grid.major.y = element_blank(),
+  panel.grid.minor.y = element_blank()) +
+  labs(title = "Survival rates by class and gender",x="Class",y="Passenger Count")+
+  scale_y_continuous(breaks=c(0,50,100,150,200,250,300,350,400,450,500,550,600,650,700))+ 
+  scale_x_discrete(labels=c("1" = "First class ", "2" = "second class","3"="Third class"))+ facet_grid(~sex)
+```
+
+
+## **conclusion** :
+* The data suggests that the third class had the highest death rate compared to the other classes while the first class had the highest survival rate.
+* The death rate in males was higher in the Three classes
+
+
+## Age range and survival using boxplot
+
+```{r}
+Age_Plot_Box <- ggplot(titanic3,aes(y=age,x=survived,fill=survived)) + geom_boxplot() + scale_fill_manual(values = c("#ff006f", "#006eff"),name = "Survival Status", labels = c("Died", "Survived")) +
+  ggtitle("Age range for survived and Died")+ labs(x="Survived or Died",y="Passenger Age") + 
+scale_x_discrete(labels=c("0" = "Died ", "1" = "Survived"))+ theme(legend.justification = c("right", "top"),plot.title = element_text(hjust = 0.5),panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank()) 
+Age_Plot_Box
+```
+
+
+# Age range and survival rate using violin plot 
+
+
+```{r}
+Age_Plot <- ggplot(titanic3, aes(x = survived, y = age, fill = survived)) +
+  geom_flat_violin(alpha = 0.8) +
+  geom_point(aes(color = survived), position = position_jitter(height = 0.1), alpha = 0.5, size = 1.5) +
+  geom_boxplot(width = 0.1, alpha = 0.8, color = "black", size = 0.5) + 
+  scale_fill_manual(values = c("#ff006f", "#006eff"), name = "Survival Status", labels = c("Died", "Survived")) +
+  ggtitle("Age range for survived and Died") +
+  labs(x = "Survived or Died", y = "Passenger Age") +
+  theme(legend.justification = c("right", "top"), plot.title = element_text(hjust = 0.5), panel.grid.major.y = element_blank(), panel.grid.minor.y = element_blank())
+Age_Plot
+```
+
+
+
+
+
+# Age range using histogram
+
+```{r}
+titanic3 %>%
+  ggplot() +
+  geom_histogram(aes(x = age), binwidth = 5, color = "#355a63", fill = "#006eff") +
+  theme(plot.title = element_text(hjust = 0.5, size=14, color = "#054354"),panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank(),panel.grid.major.y = element_blank(),
+    panel.grid.minor.y = element_blank()) +
+  ggtitle("Titanic Age Distribution") +
+  scale_x_continuous(name= "Passenger Age", breaks = 5*c(0:18)) +
+  scale_y_continuous(name = "Passenger Count") 
+```
+
+
+
+# Age range and Survival using histogram
+
+```{r}
+titanic3 %>%
+  ggplot() +
+  geom_histogram(aes(x = age, fill = survived), binwidth = 5, color = "#355a63") +
+  theme(plot.title = element_text(hjust = 0.5, size=18, color = "#054354")) +
+  ggtitle("Titanic Survival Rate by Age") +
+  scale_x_continuous(name= "Passenger Age", breaks = 5*c(0:18)) +
+  scale_y_continuous(name = "Passenger Count",breaks = c(0,20,40,60,80,100,120,140,160)) +
+  scale_fill_discrete(name = "Outcome", labels = c("Did Not Survive", "Survived"))
+```
+
+# Survival rates by age and gender Using Histogram
+
+
+```{r}
+titanic3 %>%
+  ggplot() +
+  geom_histogram(aes(x = age, fill = survived), binwidth = 5, color = "#355a63") +
+  theme(plot.title = element_text(hjust = 0.5, size=18, color = "#054354")) +
+  ggtitle("Titanic Survival Rate by Age and Gender") +
+  scale_x_continuous(name= "Passenger Age", breaks = 5*c(0:18)) +
+  scale_y_continuous(name = "Passenger Count",breaks = c(0,20,40,60,80,100,120,140,160)) +
+  scale_fill_discrete(name = "Outcome", labels = c("Did Not Survive", "Survived")) +facet_wrap(~sex,dir="v")
+```
+
+## *Conclusion* :
+* Age range is between 20-40 old 
+* Mostly all females range 50 and above survived while most males age 50 and above dies
+* nearly half of the males less than 10 years old survived, At 15 years old most of the males didn't survive
+
+
+
+# Trying stripplot to visualize age range versus embarked or not 
+* Leh fe nas ta7t el sefr ?
+* Fe 3 patients 80s in south not in the data set
+```{r}
+titanic3 %>%
+  filter(embarked != "") %>% 
+  ggplot() +
+  geom_jitter(aes(x = age, y = factor(survived), color = factor(survived)), width = 10, height = 0.5) +
+  theme(plot.title = element_text(hjust = 0.5, size=18, color = "#054354")) +
+  ggtitle("Titanic Survival Rate by Age") +
+  scale_x_continuous(name= "Passenger Age", breaks = 5*c(0:18)) +
+  scale_y_discrete(name = "Outcome", labels = c("Did Not Survive", "Survived")) +
+  scale_color_discrete(name = "Outcome", labels = c("Did Not Survive", "Survived"))+ facet_wrap(~embarked,dir="v")
+```
+
+
+
+## Survival across age ranges using density plot
+```{r}
+titanic3 %>%
+  ggplot() +
+  geom_density(aes(x=age,fill=survived)) +
+  scale_fill_manual(values= c("#ff006f", "#006eff"), name = "Survival Status", labels = c("Died", "Survived"))
+  theme(plot.title = element_text(hjust = 0.5, size=14, color = "#054354"),panel.grid.major.x = element_blank(),
+  panel.grid.minor.x = element_blank(),panel.grid.major.y = element_blank(),
+  panel.grid.minor.y = element_blank()) +
+  ggtitle("Titanic Age Distribution") 
+  
+```
+
+
+## Survival rate by embarking and age
+
+```{r}
+titanic3 %>%
+  filter(embarked != "") %>% 
+  ggplot() +
+  geom_histogram(aes(x = age, fill = survived), binwidth = 5, color = "#355a63") +
+  theme(plot.title = element_text(hjust = 0.5, size=18, color = "#054354")) +
+  ggtitle("Titanic Survival Rate by Age") +
+  scale_x_continuous(name= "Passenger Age", breaks = 5*c(0:18)) +
+  scale_y_continuous(name = "Passenger Count",breaks = c(0,20,40,60,80,100,120,140,160)) +
+  scale_fill_discrete(name = "Outcome", labels = c("Did Not Survive", "Survived"))+facet_wrap(~embarked,dir = "v")
+```
+
+
+
+## Survival rates by embarking places
+```{r}
+titanic3 %>% 
+  filter(embarked != "") %>% 
+  group_by(survived,embarked) %>% 
+  summarise(count=n()) %>% 
+  mutate(percentage=count/sum(count)*100) %>%
+  ungroup() %>% 
+  group_by(embarked) %>% 
+  mutate(total_count = sum(count)) %>% 
+  mutate(survival_rate = count / total_count * 100) %>% 
+  ggplot(aes(x = embarked,y=count, fill = survived)) +
+  geom_bar(width = 0.5,stat = "identity") + 
+  scale_fill_manual(values= c("#ff006f", "#006eff"), name = "Survival Status", labels = c("Died", "Survived")) +
+  theme(legend.justification = c("right", "top"),plot.title = element_text(hjust = 0.5),panel.grid.major.x = element_blank(),
+  panel.grid.minor.x = element_blank(),panel.grid.major.y = element_blank(),
+  panel.grid.minor.y = element_blank()) +
+  labs(title = "Survival rates by Embarking place",x="Class",y="Passenger Count")+
+  scale_y_continuous(breaks=c(0,100,200,300,400,500,600,700,800,900))+ 
+  scale_x_discrete(labels=c("C" = "Cherbourg", "Q" = "Queenstown","S"="Southampton"))+
+  geom_label(aes(label = paste0(count, " (", round(survival_rate), "%)"),y=count,group= survived),
+             label.padding = unit(0.15, "lines"),
+             label.size = 0.75,
+             label.r = unit(0.005, "lines"),
+            position = position_stack(vjust = 0.5),size=3)
+```
+
+
+
+## Survival rate by sex and embarking place
+
+```{r}
+titanic3 %>% 
+  filter(embarked != "") %>% 
+  group_by(sex, embarked, survived) %>% 
+  summarise(count = n()) %>% 
+  ggplot(aes(x = embarked, y = count, fill = survived)) +
+  geom_bar(width = 0.5, stat = "identity") + 
+  scale_fill_manual(values = c("#ff006f", "#006eff"), name = "Survival Status", labels = c("Died", "Survived")) +
+  theme(legend.justification = c("right", "top"), plot.title = element_text(hjust = 0.5), panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank(), panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank()) +
+  labs(title = "Survival rates by Embarking place", x = "Class", y = "Passenger Count") +
+  scale_y_continuous(breaks = c(0, 100, 200, 300, 400, 500, 600, 700, 800, 900)) +
+  facet_wrap(~ sex)
+```
+
+## Survival rate by sex and siblings/spouses
+
+```{r}
+titanic3 %>%
+  ggplot() +
+  geom_histogram(aes(x =sibsp , fill = as.factor(survived)), binwidth = 1,color = "#355a63") +
+  facet_grid(pclass ~ sex) +
+  theme(plot.title = element_text(hjust = 0.5, size=18, color = "#054354")) +
+  xlim(0,9)+
+  scale_fill_manual(values = c("#ff006f", "#006eff"))+
+  ggtitle("Titanic Survival Rate by siblings/spouses") +
+  scale_x_continuous(name = "siblings/spouses") +
+  scale_y_continuous(name = "Passenger Count") +
+  scale_fill_discrete(name = "Outcome", labels = c("Did Not Survive", "Survived"))
+```
+ 
+
+```{r}
+titanic3 %>%
+  ggplot() +
+  geom_point(aes(x = age, y = sibsp, color = as.factor(survived)), alpha = 0.7) +
+  facet_grid(sex ~ pclass) +
+  theme_bw() +
+  theme(plot.title = element_text(size=18, color = "#054354")) +
+  ggtitle("Survival Rate by Gender, Class, Age, and sibsp") +
+  scale_x_continuous(name= "Passenger Age", breaks = 10*c(0:8)) +
+  scale_y_continuous(name = "Family Size") +
+  scale_color_discrete(name = "Outcome", labels = c("Did Not Survive", "Survived"))
+```
+
+## **conclusions** : 
+* almost all females with zero/one sibling/spouse survived while most of the males died in the first class and second class
+* 7/8 of the males who have zero siblings have died in the third class while half of the females died in the third class
+* Majority of Males and Females in 3rd Pclass with Sib/spouse of 5 and above Did Not Survive
+
+```{r}
+titanic3 %>%
+  ggplot() +
+  geom_histogram(aes(x =parch , fill = as.factor(survived)), binwidth = 1,color = "#355a63") +
+  facet_grid(~ sex) +
+  theme(plot.title = element_text(hjust = 0.5, size=18, color = "#054354")) +
+  scale_fill_manual(values = c("#ff006f", "#006eff"))+
+  ggtitle("Titanic Survival Rate by parents/children") +
+  scale_x_continuous(name = "Family Size") +
+  scale_y_continuous(name = "Passenger Count") +
+  scale_fill_discrete(name = "Outcome", labels = c("Did Not Survive", "Survived"))
+```
+
+
+```{r}
+titanic3 %>% select(survived,sibsp) %>% group_by(as.factor(survived),sibsp) %>% count()
+p2_2 <- ggplot(titanic3, aes(x = age, y = survived, color = cut2(sibsp,
+       0:2))) +
+  geom_point() +  # Add points to the plot
+  geom_smooth(method = "loess", se = FALSE) +  # Fit a loess curve
+  ylim(0, 1) +  # Set the y-axis limits
+  ylab("Survived")  
+```
+
+```{r}
+titanic3 <- read_excel("titanic3.xls")
+b  <- scale_size_discrete(range=c(.1, .85))
+yl <- ylab(NULL)
+titanic3 %>% select(survived,parch) %>% group_by(as.factor(survived),parch) %>% count()
+titanic3 %>% select(survived,sex,parch) %>% group_by(as.factor(survived),sex,parch) %>% count()
+p2_2 <- ggplot(titanic3, aes(x=age, y=survived, color=cut2(parch,
+       0:2))) + stat_plsmo() + b + ylim(0,1) + yl +
+      scale_color_discrete(name='parents/children') 
+p2_2
+```
+## **conclusion** :
+* people with zero parents and childen has 0.5 probability survival if less than 10 years while it reached 0.3 in years more than 20
+* people with one parent/child had more than 0.5 probability survival  across the ages
+* for people with 2 or more par/child probability survival peaked at age 20 - 40 to be more than 0.6
+
+
+
+
+
+```{r}
+titanic3 <- read_excel("titanic3.xls")
+b  <- scale_size_discrete(range=c(.1, .85))
+yl <- ylab(NULL)
+p1 <- ggplot(titanic3, aes(x=age, y=survived)) +
+      histSpikeg(survived ~ age, lowess=TRUE, data=titanic3) +
+      ylim(0,1)+yl
+      
+p2 <- ggplot(titanic3, aes(x=age, y=as.numeric(survived), color=sex)) +
+      histSpikeg(survived ~ age + sex, lowess=TRUE,
+                 data=titanic3) + ylim(0,1) +yl
+p3 <- ggplot(titanic3, aes(x=age, y=as.numeric(survived), size=pclass)) +
+      histSpikeg(survived ~ age + pclass, lowess=TRUE,
+                 data=titanic3) + ylim(0,1) +b +yl
+p4 <- ggplot(titanic3, aes(x=age, y=as.numeric(survived), color=sex,
+       size=pclass)) +
+      histSpikeg(survived ~ age + sex + pclass,
+                 lowess=TRUE, data=titanic3) +ylim(0,1)+b +yl 
+Plot_age_sex_class <-gridExtra::grid.arrange(p1, p2, p3, p4, ncol=2)  
+Plot_age_sex_class
+```
+
+
+## **conclusions** :
+* female survival probability is very high under20 years the probability is 1 for second class decreased to 0.85 till 40 years while above 40 years probability decreased till it reached 0.6
+* female survival probability is near 1 till for first class from 20 to 75 years while under 20 nearly 0.8 for class 3 probability of survival is above 0.5 rill 15 years then dicrease to 0.3 at 40 years
+
+
+
+
+
+# Checking regression assumptions
+
+```{r}
+model <- glm(as.factor(survived) ~ as.numeric(age), data = titanic3, 
+               family = binomial)
+probabilities <- predict(model, type = "response")
+mydata <- titanic3 %>%
+  dplyr::select_if(is.numeric)
+test <- mydata %>% filter(!is.na(age)) %>% 
+  mutate(logit = log(probabilities/(1-probabilities))) %>%
+  gather(key = "predictors", value = "predictor.value", -logit)
+
+ggplot(test, aes(logit, predictor.value))+
+  geom_point(size = 0.5, alpha = 0.5) +
+  geom_smooth(method = "loess")
+```
+
+# cook distance
+## Influential values are extreme individual data points that can alter the quality of the logistic regression model.
+
+```{r}
+plot(model, which = 4, id.n = 3)
+model.data <- augment(model) %>% 
+ mutate(index = 1:n()) 
+ model.data %>% top_n(3, .cooksd)
+ model.data %>% 
+ filter(abs(.std.resid) > 3)
+```
+
+# choosing knots for rcs
+
+```{r}
+for(k in 3 : 5) {
+  f <- lrm(survived ~ sex*pclass*rcs(age, k) +
+           rcs(age, k)*(sibsp + parch), data=titanic3)
+  cat('k=', k, '  AIC=', AIC(f), '\n')
+}
+
+```
+# Take the number of knots with least AIC >>>4 
+
+# Anova and regression model output
+```{r}
+f1 <- lrm(survived ~ sex*pclass*rcs(age,4) +
+          rcs(age,4)*(sibsp + parch)+rcs(age,4)*embarked, data=titanic3, x=TRUE, y=TRUE)
+f1
+anova(f1)
+```
+## **comments** : 
+* for the p value of the Likelihood-Ratio test is <0.05 indicates The model's fit is significantly better than an empty model with no predictors.
+* R2: The R-squared value is 0.57, indicating that the model explains 57.4% of the variance in the outcome variable.
+* c index over 0.8 indicate a strong model, he C-statistic gives the probability a randomly selected patient who experienced an event (e.g. a disease or condition) had a higher risk score than a patient who had not experienced the event.
+* The adjusted R-squared value is 0.398. This adjusted value considers the number of predictors (31) and the total number of observations (1046), providing a measure of how well the model fits the data while adjusting for the complexity of the model.
+* Dxy: The Dxy index is 0.762, and The gamma index is 0.77 measure of the model's discriminative ability.
+* age and gender interaction is significant at 0.01 which recommend that survival differs across different gender depending on age
+* siblingin/spose is statistically significant present of one sipling/spouse decrease the odds of survival by e^-0.8
+* gender,pclass,age and parch main effect is not statistically significant
+* The total Interaction and non linearity is significant 
+* class and age interaction in not significant 
+* why sex and class interaction is not significant in the model while in the Anova it is significant ??
+
+```{r}
+library(rpart)
+library(naniar)
+gg_miss_var(titanic3)
+who.na <- rpart(is.na(age) ~ sex + pclass + survived +
+                sibsp + parch, data=titanic3, minbucket=30)
+plot(who.na, margin=.1); text(who.na)
+```
+## **comments** :
+* the problem with single imputation is the distribution of imputed values is different from observed because of the automatic spline transformation of age while multiple imputation doesnot transform age when predicted by another variables but when it is used to predict other variables spline transformation is performed
+* force class ,parch,sibs to be linear becaus high discrete variables make it difficult to choose knots
+* Can what aregImpute() does ‘under the hood’ be described as MICE, or is it a different approach? FH: different: bootstrap vs. draws from an approximate multivariate normal distribution for the regression coefficients
+* imputations number 263/1309=0.2
+```{r}
+titanic3[is.na(titanic3) | titanic3=="Inf"] <- NA
+set.seed(17)         # so can reproduce random aspects
+mi <- aregImpute(~ age + sex + I(pclass) +
+                 I(sibsp) + I(parch) + survived,
+                 data=titanic3, n.impute=20, nk=4, pr=FALSE) 
+mi
+plot(mi)
+Ecdf(titanic3$age, add=TRUE, col='gray', lwd=2,subtitles=FALSE)
+
+```
+
+### **comments**:
+* shape of distribution is similar, but there is a shift in age to be younger because third class has the most missing age and people with non missing in third class are younger
+
+```{r}
+runmi <- function()
+  fit.mult.impute(survived ~ sex * pclass * rcs(age, 4) + rcs(age, 4) * (sibsp + parch),
+                  lrm, mi, data=titanic3, pr=FALSE, lrt=TRUE)
+seed <- 17
+f.mi <- runifChanged(runmi, seed, mi, titanic3,file = "T3.xls")
+```
+
+```{r}
+afmi <- processMI(f.mi, 'anova')
+# Print imputation penalty indexes
+prmiInfo(afmi)
+afmi
+titanic3$age[is.na(titanic3$age)] <- mi$imputed$age
+titanic3$age[is.na(titanic3$survived)] <- mi$imputed$survived
+
+```
+comment : chi squares increased after imputation for sex p class ,siblings and age but for interaction in age it decreases sobhan allah msh 3rfa leh
+
+
+# Trying to use mice
+
+
+```{r}
+library(mice)
+library(rms)
+
+# Multiple imputation
+imp <- mice(titanic3, m = 20, maxit = 20, seed = 123)
+
+# Needed for rcs()
+dd <- datadist(titanic3)
+options(datadist = "dd")
+
+# Fit the model on each imputed dataset
+fit2 <- with(
+  data = imp,
+  expr = glm(
+    survived ~ sex * pclass * rcs(age, 4) +
+      rcs(age, 4) * (sibsp + parch),
+    family = binomial
+  )
+)
+
+# Pool results
+pool_fit2 <- pool(fit2)
+summary(pool_fit2)
+
+
+```
+
+# cross validation
+## cross validation is easier and estimate prediction error more accurate (no overlapping as bootstrap method ted to underestimate prediction error)
+## https://www.geeksforgeeks.org/cross-validation-in-r-programming/
+
+```{r}
+#library(caret)
+# # set.seed(123) 
+# # train.control <- trainControl(method = "cv", number = 10)
+# # Train the model
+# model <- train(survived ~ sex*pclass*rcs(age,4) +
+#           rcs(age,4)*(sibsp + parch)+rcs(age,4)*embarked, data = titanic3, method = "glm",
+#                trControl = train.control, na.action=na.exclude)
+# # Summarize the results
+# print(model)
+```
+
+```{r}
+
+
+titanic_imp <- complete(imp, 1)
+
+titanic_imp$survived <- factor(
+  titanic_imp$survived,
+  levels = c(0, 1),
+  labels = c("Died", "Survived")
+)
+vars_model <- c("survived", "sex", "pclass", "age", "sibsp", "parch", "embarked")
+titanic_imp <- titanic_imp[complete.cases(titanic_imp[vars_model]), vars_model]
+
+colSums(is.na(titanic_imp))
+
+
+titanic_imp$pclass   <- factor(titanic_imp$pclass)
+titanic_imp$embarked <- factor(titanic_imp$embarked)
+
+dd <- datadist(titanic_imp)
+options(datadist = "dd")
+library(caret)
+
+set.seed(123)
+
+ctrl <- trainControl(
+    method = "cv",
+    number = 10,
+    classProbs = TRUE,
+    summaryFunction = twoClassSummary
+)
+
+model_class <- train(
+    survived ~ sex*pclass*rcs(age,4) +
+        rcs(age,4)*(sibsp + parch) +
+        rcs(age,4)*embarked,
+    data = titanic_imp,
+    method = "glm",
+    family = binomial,
+    trControl = ctrl,
+    metric = "ROC"  
+)
+
+model_class
+
+```
+```{r}
+# Predicted class labels
+pred_class <- predict(model_class, titanic_imp)
+
+# Predicted probabilities for the "Survived" class
+pred_prob  <- predict(model_class, titanic_imp, type = "prob")[,"Survived"]
+
+cm <- confusionMatrix(pred_class, titanic_imp$survived, positive = "Survived")
+cm
+
+
+```
+
